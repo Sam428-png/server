@@ -84,6 +84,7 @@ class CustomPropertiesBackend implements BackendInterface {
 	private const ALLOWED_NC_PROPERTIES = [
 		'{http://owncloud.org/ns}calendar-enabled',
 		'{http://owncloud.org/ns}enabled',
+		'{http://owncloud.org/ns}default-alarm',
 	];
 
 	/**
