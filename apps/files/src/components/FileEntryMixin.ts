@@ -481,14 +481,47 @@ export default defineComponent({
 				return
 			}
 
-			const isCopy = event.ctrlKey
-			this.dragover = false
+			// Caching the selection
+			const selection = this.draggingFiles
+			const items = Array.from(event.dataTransfer?.items || [])
 
-			logger.debug('Dropped', { event, folder, selection, fileTree })
+			if (selection.length === 0 && items.some((item) => item.kind === 'file')) {
+				const uploader = getUploader()
+				await uploader.batchUpload(
+					this.source.path,
+					items.filter((item) => item.kind === 'file')
+						.map((item) => 'webkitGetAsEntry' in item ? item.webkitGetAsEntry() : item.getAsFile())
+						.filter(Boolean) as (FileSystemEntry | File)[],
+					async (nodes, path) => {
+						try {
+							const { contents, folder } = await this.activeView!.getContents(path)
+							const conflicts = getConflicts(nodes, contents)
+							if (conflicts.length === 0) {
+								return nodes
+							}
 
-			// Check whether we're uploading files
-			if (selection.length === 0 && fileTree.contents.length > 0) {
-				await onDropExternalFiles(fileTree, folder, contents.contents)
+							const result = await openConflictPicker(
+								folder.displayname,
+								conflicts,
+								(contents as Node[]).filter((node) => conflicts.some((conflict) => conflict.name === node.basename)),
+								{
+									recursive: true,
+								},
+							)
+							if (result === null) {
+								return false
+							}
+							return [
+								...nodes.filter((node) => !conflicts.some((conflict) => conflict.name === node.name)),
+								...result.selected,
+								...result.renamed,
+							]
+						} catch {
+							return nodes
+						}
+					},
+				)
+				this.dragover = false
 				return
 			}
 
